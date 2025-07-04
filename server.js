@@ -1,74 +1,34 @@
 const express = require('express');
-const cors = require('cors');
-const path = require('path');
-require('dotenv').config();
+const { initDb } = require('./auth/db');
+const { setupAuth } = require('./auth/middleware');
+const authRoutes = require('./auth/routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Setup middleware
+setupAuth(app);
 
-// Serve static files from public directory (only in production)
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, 'public')));
-}
+// Initialize database
+initDb();
 
-// API routes
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/setup', authRoutes);
+
+// Health check
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    message: 'Crypto Trading Assistant API is running',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
-  });
+  res.json({ status: 'OK' });
 });
 
-// API route for basic crypto data (placeholder)
-app.get('/api/crypto/status', (req, res) => {
-  res.json({
-    message: 'Crypto trading assistant is online',
-    features: ['Portfolio tracking', 'Price alerts', 'Trading signals'],
-    version: '1.0.0',
-    environment: process.env.NODE_ENV || 'development'
-  });
-});
-
-// Serve Vue app for all other routes (SPA) - only in production
+// Serve static files in production
 if (process.env.NODE_ENV === 'production') {
+  app.use(express.static('public'));
   app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-  });
-} else {
-  // In development, send a simple message for non-API routes
-  app.get('*', (req, res) => {
-    res.json({ 
-      message: 'Development mode - Frontend served by webpack dev server on port 8080',
-      frontend: 'http://localhost:8080',
-      api: `http://localhost:${PORT}/api`
-    });
+    res.sendFile(__dirname + '/public/index.html');
   });
 }
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
-});
 
 app.listen(PORT, () => {
-  console.log(`🚀 Crypto Trading Assistant server running on port ${PORT}`);
-  console.log(`📊 API available at http://localhost:${PORT}/api`);
-  console.log(`🌐 Frontend available at http://localhost:${PORT}`);
-  console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
-}).on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.error(`❌ Port ${PORT} is already in use. Please change the PORT in your .env file or stop the other process.`);
-    process.exit(1);
-  } else {
-    console.error('❌ Server error:', err);
-    process.exit(1);
-  }
+  console.log(`Server running on port ${PORT}`);
 });
